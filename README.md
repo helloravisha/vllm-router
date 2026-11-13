@@ -80,6 +80,11 @@ curl -s http://127.0.0.1:29000/metrics | grep -E 'processed_requests_total|prefi
 Point the vLLM model's `base_url` in the gateway's Model Registry at the router: `http://127.0.0.1:30000/v1`.
 The gateway then sends that model's calls through the router; nothing else changes.
 
+## Next: Kubernetes and upgrades
+
+Plans for GKE (service discovery instead of `workers.txt`, Secrets, metrics), the upgrade checklist and open items:
+[docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Files
 
 ```
@@ -91,4 +96,5 @@ test-router.sh    end-to-end test with curl (PASS / FAIL)
 status.sh         router, workers, routing counts
 stop-router.sh    stop the router
 Dockerfile        python:3.12-slim + vllm-router
+docs/ROADMAP.md   Kubernetes plan, upgrade checklist, open items
 ```
