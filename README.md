@@ -60,6 +60,11 @@ curl -s -H "$K" -H 'Content-Type: application/json' http://127.0.0.1:30000/v1/ch
 curl -s http://127.0.0.1:29000/metrics | grep -E 'processed_requests_total|prefix_routing_decisions_total'
 ```
 
+**Always send `"model"`, even through the router.** The router only picks a replica and forwards the request body
+unchanged; the vLLM replica checks `"model"` against the model it serves (a wrong name gets 404 "model does not
+exist"). Use the exact `model:` from `stack.txt` - `/v1/models` above shows it. Apps that call the LLM gateway
+instead don't need this: the gateway fills in `"model"` from its registry.
+
 ### Using it behind the LLM gateway
 
 Set the model's `base_url` on the gateway's Model Registry page to `http://localhost:30000/v1`. Nothing else changes.
