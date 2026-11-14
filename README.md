@@ -11,7 +11,24 @@ client ──▶ router :30000 ──┬──▶ vLLM :8000  (Qwen2.5-1.5B, rep
            metrics :29000
 ```
 
-## Quick start
+## Quick start: everything in one command
+
+If your vLLM servers come from [vllm-serving](https://github.com/helloravisha/vllm-serving) (cloned and set up next
+to this repo, or set `VLLM_SERVING_DIR` in `router.env`):
+
+```bash
+./setup.sh           # once: build the router image
+./start-stack.sh     # starts one vLLM replica per port in REPLICA_PORTS (default 8000 8010, with --enable-scale-out),
+                     # waits until they answer, then starts the router on :30000   (~20 s with the model downloaded)
+./test-router.sh     # PASS / FAIL with curl
+./stop-stack.sh      # stops the router and the replicas start-stack.sh started (others are left alone)
+```
+
+Model and replicas come from `router.env` (`MODEL_CONFIG`, `REPLICA_PORTS`) and can be set per run, e.g.
+`REPLICA_PORTS="8000 8010 8020" ./start-stack.sh`. A port where the model is already being served is reused.
+Replica logs: `logs/vllm-<port>.log`.
+
+## Quick start: router only (vLLM started your own way)
 
 ```bash
 ./setup.sh                 # build the router image (once; ~1 min)
@@ -89,7 +106,9 @@ Plans for GKE (service discovery instead of `workers.txt`, Secrets, metrics), th
 
 ```
 setup.sh          build the router image
-router.env        ports, policy, API key, image
+start-stack.sh    vLLM replicas (via vllm-serving) + router, one command
+stop-stack.sh     stop the router and the replicas start-stack.sh started
+router.env        ports, policy, API key, image; model and replica ports for start-stack.sh
 workers.txt       the vLLM servers to route to
 start-router.sh   check workers, start the router (Docker), wait until ready; log in logs/router.log
 test-router.sh    end-to-end test with curl (PASS / FAIL)
