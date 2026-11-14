@@ -84,6 +84,12 @@ curl -s http://127.0.0.1:29000/metrics | grep -E 'processed_requests_total|prefi
 - `test-router.sh`: 6/6 pass. A shared ~550-word system prompt: request 1 `prefix_miss`, request 2 `prefix_hit`,
   both on the same worker.
 - `round_robin`: 4 requests split 2 / 2 across the workers.
+- **A replica dies:** killed :8010 during 12 requests (`round_robin`): all 12 returned 200 in ~0.2 s - the router
+  retried the 8 sends that hit the dead replica on :8000 (`vllm_router_retries_total`). Its health metric only notices
+  after the next health check (every 60 s); the retries are what protect requests.
+- **Behind the LLM gateway:** with the model's `base_url` at `http://localhost:30000/v1`, gateway `/tool-plan` calls go
+  through the router (3.0 s -> 2.1 s -> 1.9 s as the long prompt got cached), and with Ollama stopped the gateway's
+  fallback was answered by vLLM through the router.
 
 **Known limits with vLLM workers (vllm-router 0.1.17):**
 - The router asks workers for their load at `/get_load` - an SGLang endpoint vLLM doesn't have (404) - so it reports

@@ -30,8 +30,11 @@ for port in $REPLICA_PORTS; do
     echo "  ✗ port $port is taken by something else ($(lsof -nP -iTCP:"$port" -sTCP:LISTEN | awk 'NR==2{print $1, "pid", $2}'))" >&2; exit 1
   fi
   echo "  :$port starting (log: logs/vllm-$port.log)"
-  (cd "$VLLM_SERVING_DIR" && nohup ./serve.sh "$MODEL_CONFIG" --port "$port" --enable-scale-out > "$OLDPWD/logs/vllm-$port.log" 2>&1 &
-   echo $! > "$OLDPWD/logs/vllm-$port.pid")
+  # The whole background part writes to the log only (not to this terminal or a pipe), so
+  # './start-stack.sh | tee ...' returns; exec makes the pid in the .pid file vLLM's own.
+  (cd "$VLLM_SERVING_DIR" && exec nohup ./serve.sh "$MODEL_CONFIG" --port "$port" --enable-scale-out) \
+    < /dev/null > "logs/vllm-$port.log" 2>&1 &
+  echo $! > "logs/vllm-$port.pid"
   started+=("$port")
 done
 

@@ -47,7 +47,7 @@ cmd=(docker run -d --name "$ROUTER_NAME" --add-host=host.docker.internal:host-ga
      --policy "$POLICY" --api-key "$VLLM_API_KEY" --worker-urls "${docker_urls[@]}")
 echo "Starting: ${cmd[*]}"
 "${cmd[@]}" >/dev/null
-nohup docker logs -f "$ROUTER_NAME" > logs/router.log 2>&1 &
+nohup docker logs -f "$ROUTER_NAME" < /dev/null > logs/router.log 2>&1 &
 
 for i in $(seq 1 60); do
   if [[ "$(curl -s -o /dev/null -w '%{http_code}' -m 2 -H "Authorization: Bearer $VLLM_API_KEY" "http://127.0.0.1:$ROUTER_PORT/v1/models")" == 200 ]]; then
