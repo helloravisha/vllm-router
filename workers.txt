@@ -1,3 +1,5 @@
+# Only for ./start-router.sh when the vLLM servers already run elsewhere (start-stack.sh doesn't use this file:
+# it starts its own replicas from stack.txt). All servers listed here must serve the SAME model.
 # vLLM servers the router sends requests to - one URL per line, as reachable from this machine.
 # localhost / 127.0.0.1 are rewritten for Docker automatically. All of them must serve the same model(s).
 # For cache-aware routing, start each with --enable-scale-out (see README).

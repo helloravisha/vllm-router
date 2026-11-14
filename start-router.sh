@@ -15,7 +15,7 @@ docker image inspect "$ROUTER_IMAGE" >/dev/null 2>&1 || { echo "Image $ROUTER_IM
 
 # Check every worker before starting: up, key accepted, model name, and (for cache_aware) the render endpoint
 echo "Checking ${#workers[@]} worker(s):"
-docker_urls=(); problems=0
+docker_urls=(); problems=0; seen_models=()
 for url in "${workers[@]}"; do
   base="${url%/}"; base="${base%/v1}"
   health=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$base/health" || true)
@@ -29,6 +29,7 @@ except Exception: print("")' 2>/dev/null)
       "$base/v1/chat/completions/render" -d "{\"model\":\"${model%%,*}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" || true)
   fi
   printf '  %-28s health=%s model=%s render=%s\n' "$base" "$health" "${model:-?}" "$render"
+  [[ -n "$model" ]] && seen_models+=("$model")
   if [[ "$health" != 200 || -z "$model" ]]; then
     echo "    ✗ not reachable, or the API key ($VLLM_API_KEY) was refused" >&2; problems=1
   elif [[ "$render" == 403 ]]; then
@@ -38,6 +39,13 @@ except Exception: print("")' 2>/dev/null)
   docker_urls+=("$(printf '%s' "$base" | sed -E 's#://(localhost|127\.0\.0\.1)([:/]|$)#://host.docker.internal\2#')")
 done
 [[ $problems == 0 ]] || { echo "Fix the worker(s) above, then run again." >&2; exit 1; }
+# The router doesn't route by model name: every worker gets any request, so all must serve the same model
+distinct=$(printf '%s\n' "${seen_models[@]}" | sort -u | grep -c . || true)
+if [[ $distinct -gt 1 ]]; then
+  echo "✗ The workers serve different models: $(printf '%s\n' "${seen_models[@]}" | sort -u | paste -sd ',' - | sed 's/,/, /g')" >&2
+  echo "  One router per model: put each model's servers behind its own router (own ROUTER_NAME and ports)." >&2
+  exit 1
+fi
 
 docker rm -f "$ROUTER_NAME" >/dev/null 2>&1 || true
 pkill -f "docker logs -f $ROUTER_NAME" 2>/dev/null || true

@@ -1,0 +1,25 @@
+# stack.txt - what ./start-stack.sh runs: one model, N replicas of it, one router in front.
+# Change a line, then:  ./stop-stack.sh && ./start-stack.sh
+# (For one run, an environment variable overrides a line, e.g.  POLICY=round_robin ./start-stack.sh)
+
+# Model name: the served-model-name of a config in vllm-serving/configs/mac/ (configs/nvidia/ on Linux), e.g.
+#   Qwen/Qwen2.5-1.5B-Instruct   Qwen/Qwen2.5-7B-Instruct   Qwen/Qwen3-8B   meta-llama/Llama-3.1-8B-Instruct
+model: Qwen/Qwen2.5-1.5B-Instruct
+
+# How many vLLM copies of the model to run. Ports: the config's port, then +10, +20, ... (8000, 8010, ...).
+# On a Mac each copy reserves about 25% of GPU memory: 2-3 is a sensible maximum.
+replicas: 2
+
+# How the router picks a replica for each request (keep exactly one line active):
+policy: cache_aware             # the replica that already has the start of this prompt cached - faster for repeated long prompts
+# policy: round_robin           # take turns - spreads requests evenly
+# policy: power_of_two          # the less busy of two randomly chosen replicas (not tested yet)
+# policy: random                # any replica at random
+# policy: consistent_hash       # the same request always goes to the same replica
+# policy: sticky_least_loaded   # keep a session on one replica, start new sessions on the least busy (not tested yet)
+
+# Where clients and the LLM gateway connect (gateway base_url: http://localhost:<router_port>/v1)
+router_port: 30000
+
+# Prometheus metrics: http://127.0.0.1:<metrics_port>/metrics
+metrics_port: 29000

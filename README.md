@@ -11,24 +11,38 @@ client ──▶ router :30000 ──┬──▶ vLLM :8000  (Qwen2.5-1.5B, rep
            metrics :29000
 ```
 
-## Quick start: everything in one command
+## Quick start
 
-If your vLLM servers come from [vllm-serving](https://github.com/helloravisha/vllm-serving) (cloned and set up next
-to this repo, or set `VLLM_SERVING_DIR` in `router.env`):
+Everything is described in **`stack.txt`**: which model, how many replicas, which routing policy, which ports.
+
+```
+model: Qwen/Qwen2.5-1.5B-Instruct     # a served-model-name from vllm-serving's configs
+replicas: 2                           # vLLM copies: ports 8000, 8010, ... (the config's port, +10, ...)
+policy: cache_aware                   # the other policies are listed in the file, commented out, one line each
+router_port: 30000                    # clients and the LLM gateway connect here
+metrics_port: 29000                   # Prometheus metrics
+```
 
 ```bash
-./setup.sh           # once: build the router image
-./start-stack.sh     # starts one vLLM replica per port in REPLICA_PORTS (default 8000 8010, with --enable-scale-out),
-                     # waits until they answer, then starts the router on :30000   (~20 s with the model downloaded)
+./setup.sh           # once: build the router image (~1 min). Needs vllm-serving cloned and set up
+                     # (default ~/vllm-serving; set VLLM_SERVING_DIR in router.env)
+# edit stack.txt
+./start-stack.sh     # starts the replicas (with --enable-scale-out), waits until they answer, starts the router (~20 s)
 ./test-router.sh     # PASS / FAIL with curl
+./status.sh          # workers and how requests were routed
 ./stop-stack.sh      # stops the router and the replicas start-stack.sh started (others are left alone)
 ```
 
-Model and replicas come from `router.env` (`MODEL_CONFIG`, `REPLICA_PORTS`) and can be set per run, e.g.
-`REPLICA_PORTS="8000 8010 8020" ./start-stack.sh`. A port where the model is already being served is reused.
-Replica logs: `logs/vllm-<port>.log`.
+To change model, replicas or policy: `./stop-stack.sh`, edit `stack.txt`, `./start-stack.sh`. For a single run an
+environment variable overrides a line: `POLICY=round_robin ./start-stack.sh`. A replica port that already serves the
+model is reused; a mistyped model name lists the available ones. Replica logs: `logs/vllm-<port>.log`.
 
-## Quick start: router only (vLLM started your own way)
+`router.env` holds what rarely changes: the API key, the router image version, where vllm-serving is.
+
+## Router only (vLLM already running elsewhere)
+
+Use this instead of `start-stack.sh` when the vLLM servers are started some other way (another machine, Docker, by
+hand). List them in `workers.txt` - all must serve the **same model** (`start-router.sh` refuses mixed models):
 
 ```bash
 ./setup.sh                 # build the router image (once; ~1 min)
@@ -42,8 +56,8 @@ vi workers.txt             # one vLLM URL per line (http://127.0.0.1:8000, ...)
 ./stop-router.sh           # stop the router (the vLLM servers keep running)
 ```
 
-Settings are in `router.env` (ports, policy, API key) and can be overridden per run, e.g.
-`POLICY=round_robin ./start-router.sh`, or `./start-router.sh http://127.0.0.1:8000 http://127.0.0.1:8010`.
+Ports and policy still come from `stack.txt`. Addresses can also be given directly:
+`./start-router.sh http://127.0.0.1:8000 http://127.0.0.1:8010`.
 
 ## Requirements
 
@@ -112,10 +126,11 @@ Plans for GKE (service discovery instead of `workers.txt`, Secrets, metrics), th
 
 ```
 setup.sh          build the router image
-start-stack.sh    vLLM replicas (via vllm-serving) + router, one command
+stack.txt         what to run: model, replicas, policy, ports
+start-stack.sh    vLLM replicas (via vllm-serving) + router, one command, from stack.txt
 stop-stack.sh     stop the router and the replicas start-stack.sh started
-router.env        ports, policy, API key, image; model and replica ports for start-stack.sh
-workers.txt       the vLLM servers to route to
+router.env        API key, image version, where vllm-serving is (rarely changed)
+workers.txt       vLLM servers for start-router.sh when they run elsewhere
 start-router.sh   check workers, start the router (Docker), wait until ready; log in logs/router.log
 test-router.sh    end-to-end test with curl (PASS / FAIL)
 status.sh         router, workers, routing counts
